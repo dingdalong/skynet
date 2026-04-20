@@ -392,7 +392,7 @@ function socket.block(id)
 end
 
 socket.write = assert(driver.send)
-socket.lwrite = assert(driver.lsend)
+socket.lwrite = assert(driver.send)
 socket.header = assert(driver.header)
 
 function socket.invalid(id)
