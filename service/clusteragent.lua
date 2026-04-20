@@ -88,6 +88,7 @@ local function dispatch_request(_,_,addr, session, msg, sz, padding, is_push)
 		end
 		sz = nil
 	else
+        local addrname = addr
 		if cluster.isname(addr) then
 			addr = register_name[addr]
 		end
@@ -105,7 +106,7 @@ local function dispatch_request(_,_,addr, session, msg, sz, padding, is_push)
 			end
 		else
 			ok = false
-			msg = "Invalid name"
+			msg = "Invalid name" .. addrname
 		end
 	end
 	if ok then
