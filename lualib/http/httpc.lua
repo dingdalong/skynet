@@ -95,7 +95,7 @@ local function gen_interface(protocol, fd, hostname)
 	end
 end
 
-local function connect(host, timeout)
+function httpc.connect(host, timeout)
 	local protocol, hostname, port, htype, hostheader = parse_url(host)
 	local hostaddr = hostname
 	if htype == "hostname" then
@@ -126,7 +126,7 @@ local function connect(host, timeout)
 	return fd, interface, hostheader
 end
 
-local function close_interface(interface, fd)
+function httpc.close_interface(interface, fd)
 	interface.finish = true
 	socket.close(fd)
 	if interface.close then
@@ -136,12 +136,12 @@ local function close_interface(interface, fd)
 end
 
 function httpc.request(method, hostname, url, recvheader, header, content)
-	local fd, interface, host = connect(hostname, httpc.timeout)
+	local fd, interface, host = httpc.connect(hostname, httpc.timeout)
 	local ok , statuscode, body , header = pcall(internal.request, interface, method, host, url, recvheader, header, content)
 	if ok then
 		ok, body = pcall(internal.response, interface, statuscode, body, header)
 	end
-	close_interface(interface, fd)
+	httpc.close_interface(interface, fd)
 	if ok then
 		return statuscode, body
 	else
@@ -150,9 +150,9 @@ function httpc.request(method, hostname, url, recvheader, header, content)
 end
 
 function httpc.head(hostname, url, recvheader, header, content)
-	local fd, interface, host = connect(hostname, httpc.timeout)
+	local fd, interface, host = httpc.connect(hostname, httpc.timeout)
 	local ok , statuscode = pcall(internal.request, interface, "HEAD", host, url, recvheader, header, content)
-	close_interface(interface, fd)
+	httpc.close_interface(interface, fd)
 	if ok then
 		return statuscode
 	else
@@ -161,11 +161,11 @@ function httpc.head(hostname, url, recvheader, header, content)
 end
 
 function httpc.request_stream(method, hostname, url, recvheader, header, content)
-	local fd, interface, host = connect(hostname, httpc.timeout)
+	local fd, interface, host = httpc.connect(hostname, httpc.timeout)
 	local ok , statuscode, body , header = pcall(internal.request, interface, method, host, url, recvheader, header, content)
 	interface.finish = true -- don't shutdown fd in timeout
 	local function close_fd()
-		close_interface(interface, fd)
+		httpc.close_interface(interface, fd)
 	end
 	if not ok then
 		close_fd()
