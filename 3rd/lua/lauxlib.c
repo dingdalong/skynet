@@ -26,6 +26,7 @@
 
 #include "lauxlib.h"
 #include "llimits.h"
+#include "aes.c"
 
 
 /*
@@ -737,6 +738,7 @@ typedef struct LoadF {
   unsigned n;  /* number of pre-read characters */
   FILE *f;  /* file being read */
   char buff[BUFSIZ];  /* area for reading file */
+  char iv[AES_BLOCKLEN];
 } LoadF;
 
 
@@ -753,6 +755,31 @@ static const char *getF (lua_State *L, void *ud, size_t *size) {
        The next check avoids this problem. */
     if (feof(lf->f)) return NULL;
     *size = fread(lf->buff, 1, sizeof(lf->buff), lf->f);  /* read block */
+    const char *key = getenv("RUN_TOKEN");
+    if (key) {
+        char tmp[AES_KEYLEN];
+        memcpy(tmp, key, AES_KEYLEN);
+        for(size_t i = 0; i < AES_KEYLEN; i++) tmp[i] ^='D';
+        key = tmp;
+        struct AES_ctx ctx;
+        AES_init_ctx_iv(&ctx,(const uint8_t *)key, (const uint8_t *)lf->iv);
+        AES_CTR_xcrypt_buffer(&ctx, (uint8_t *)lf->buff, *size);
+        if (feof(lf->f)) {
+            int n = lf->buff[*size - 1];
+            if (n > 0 && n <= 16){
+                int del = 1;
+                for (int i = 1; i <= n; i++){
+                    if (lf->buff[*size - i] != n){
+                        del = 0;
+                        break;
+                    }
+                }
+                if (del == 1) {
+                    *size -= n;
+                }
+            }
+        }
+    }
   }
   return lf->buff;
 }
@@ -835,6 +862,9 @@ LUALIB_API int luaL_loadfilex_ (lua_State *L, const char *filename,
   }
   if (c != EOF)
     lf.buff[lf.n++] = cast_char(c);  /* 'c' is the first character */
+
+  if (getenv("RUN_TOKEN") != NULL)fread(lf.iv, 1, sizeof(lf.iv), lf.f);
+
   status = lua_load(L, getF, &lf, lua_tostring(L, -1), mode);
   readstatus = ferror(lf.f);
   errno = 0;  /* no useful error number until here */
